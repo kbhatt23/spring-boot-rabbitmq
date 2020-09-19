@@ -55,3 +55,59 @@ a. Default : When we do not provide any excahnge in code then it takes default e
 
 b. Fanout: Basically bypasses the routiung key provided and it directly puts to all the queue bound to the excahnge provided by publisher
 	-> use to generate publisher subsriber architechture, (not producer consumer)
+
+c. direct: exchange will route to queue whihc has same binding key as the routing key provided by producer 
+d. topic: we can send to multiple queue using special charachter like below:
+	*: can be used to represent any single word(exact one and 0 chars are ignored)
+	#: can be used to represent any number of words(o or more words )
+	eg *red* as routig key then excahnge send to all the queues whose bindng key key has anycharachter and red and then any one single charachter eg: aredb , mredc etc
+	#red# any routing key ocntianing red anywhere
+	Generally in rabbit mq words are sperated by .
+	Same rule apply in topic exchange if we give *.ram than it will accept for routing key jai.ram or sita.ram  but not for jai.sita.ram as there are more than one word seperated by .
+	however #.ram accepts for .ram,sita.ram, jai.sita.ram and so on 
+
+DLX : Dead letter exchange 
+- By Default if some excpetion occurred in rabbit mq consumer than sprin reque the message itme back to the queue and in case this specific can not be handlead at all may lead to never ending loop
+- Dead letter excahnge is a different exchange just like any exchange if we cna not handle any messag we shud put requee to flase in consumer so that this queue goes to another exchange
+	-> this can be used send email message /sms to admin
+- Also if a consumer is down for veyr long time , message will be kept in queue for loing time, we can use TTL (time to live) so that once this much time is spent it goes to dead exchange
+	where admin can recive email/sms 
+
+To make a DLX configurable
+a. Crate anew Exchange woith any type
+b. in the unqueuable queuu add dead letter exchange name and dead letter excahnge routing key in arguments
+c. The queue will still be only connected with main excahnge
+d. In code instead of throwing any random excpetion, throw amqpUnquuable exception
+e. A new Queue can be created connected to dead letter xcahnge and in consumer of that DLX excahnge we can have code to send email notifaction toa dmin so that he can check the issue
+
+The Base class Message -> represents the whoe Contnet present in rabbit mq message, it contains internal properties, ttl properties etc and also body
+	-> so far we have used just the body
+- Two ways to handle DLX:
+a. Throw Custom AMQPRejectRequeexception
+b. Make acknowledgment and rejection manual -> This will need channel class referenc- > a chanel class represent a tunnel between java/spring and rabbitmq like a connection
+steps for b:
+- Rabbit mq config will reamins same likse type a
+- In application.properties need to set manualy rejection/acknolwegment
+- Instead of throwing exception use channel body to set rejection in failture case and acknowledge in success case
+- Whena consumer is not listnenig to queue then by default message will remin in qiueue forever
+	-> we can set ttl and dead letter excahnge in that case ,if consumer is extemremy busy it goes to dead letter excahnge after configured ttl and another listner might be picking up from dead letter
+
+Scearnios:
+a. Consumer is dowqn: by default data will remain in quue foever admin wont know anything as no message from rabbit mq
+	-> we can set ttl and then it will go to dead letter exchange and then a partical queu can listnen and send notification email to admin saying consumer is donw
+b. consumer is up but message data is innvalid and cna not process: we can not do requeue as this message cna never be processed whatever time we retry
+	-> so we skip the requeue mechainism using throwing amqpunqueueexception instead of thero custom excpetion so it goes to dead letter exchange an a queu can send notitiacatio  to admin
+c. consumer is up but soime third party service is donw : we can not directly reject and push to dead letter excahnge
+	instead we do retry n times and have some wait time in between and then if after n retry it still do not process push to dead letter excahnge -> admin is notfied using quuee
+
+- spring provides oob retrying mechanism , if any exception occurs that specific message will be requeed after time interval and multiple time interval logic
+	-> after amx retry attemp ti will go to dead letter exchange
+	-> this approach saves one of temporary waiting queue/excahnge as we implemneted in previous approach
+ in summary
+	a. IF any message can not be handled at all then we need to throw AMQPRehectANdUNqueueException so taht no retrying happens and it goes directly to dead excahnge
+	b. IF any message gives exception (any thing other than above one) then it retired and wait in between each retry
+
+- Default message converter in spring boot is simplemessage converter -> whihc can handle string and convert it inti byte []
+- for object to be transferred we need to use objectmaoper to convert ot string first and then rabbit tempate can handle
+	-> same while reciveing in rabitlistenr we take string and use object mapper to convert string to java bean using deserialzation/unmarshalling
+- while using jackson message converter , the message have clas whole package name, meaning in consumer the class name and package in consumer has to be same as that in producer

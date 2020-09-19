@@ -8,18 +8,23 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 
-@Service
+//@Service
 public class MessageConsumerService {
 	private Logger logger = LoggerFactory.getLogger(MessageConsumerService.class);
 
 	@RabbitListener(queues = {"basic.hello-world"})
 	public void fetchBasicHelloMessage(String message) {
 		//System.out.println("Message recieved "+message);
+		//if below exception occurs-> spring make sure the item persist in queue so that it can be retried
+		boolean throwException = false;
+		if(throwException) {
+			throw new RuntimeException("unable to process message "+message);
+		}
 		logger.info("fetchBasicHelloMessage:Message recieved "+message);
 	}
 	
 	//this copy is created to demonstrate fanout exchange and other type of excahnges also
-	@RabbitListener(queues = {"basic.hello-world-copy"})
+	//@RabbitListener(queues = {"basic.hello-world-copy"})
 	public void fetchBasicHelloCopyMessage(String message) {
 		//System.out.println("Message recieved "+message);
 		logger.info("fetchBasicHelloCopyMessage:Message recieved "+message);
@@ -29,7 +34,7 @@ public class MessageConsumerService {
 	
 	//since rate of production is twice than consumtopm rate
 	//we could either have 2 instance of consumer running or have only one instance and concurrnecy as 2
-	@RabbitListener(queues = {"basic.fixed-rate"} , concurrency = "2")
+	//@RabbitListener(queues = {"basic.fixed-rate"} , concurrency = "2")
 	public void fetchFixedRateQueue1(String message) {
 		logger.info("fetchFixedRateQueue:Message recieved "+message +" by thread "+Thread.currentThread().getName());
 		//assuming its a big task to consume

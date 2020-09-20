@@ -111,3 +111,51 @@ c. consumer is up but soime third party service is donw : we can not directly re
 - for object to be transferred we need to use objectmaoper to convert ot string first and then rabbit tempate can handle
 	-> same while reciveing in rabitlistenr we take string and use object mapper to convert string to java bean using deserialzation/unmarshalling
 - while using jackson message converter , the message have clas whole package name, meaning in consumer the class name and package in consumer has to be same as that in producer
+
+
+- sometimes we have requirement to stop the consumer for example payment service
+	-> however the producer should keep on pushing payment data in queue, only the consumer should stop the processing of queue message during certian hours of the day
+	-> we can use scheuduler and during those time we can stop the queues and during another scdeuld time we can start the queus
+	-> spring rabbit dedpendnecy provides bean to do it
+
+- prefetch value it the number of queuue mesage takes out from rabbit mq queue and put into @rabbitlisterne queu
+	-> this is important like a buffere stream , instead of one by one taking queues items, we can take items in bulk assing to one consumer listner
+	maybe consumer is taking time to process them as it will do processing and acknowledgement of queue message one by one only
+	-> we can however use concurrency to acheive
+- default prefetch value is 250 , meaning if there are 250 messages and 2 consumers are running one consumer will pick and assing all 250 to iself
+	meaning other consumer will reamin idle as prefect is alrrady done by other consumer/listner , hwihc acnkowleges one by one
+- prefetch should be 1 for each consumer in case consumer are very slow whihc will ensure if we spawna  new consumer then it can pick the qmessage from rabbittmq
+- If a consumer is very fast we can set higher prefect value , however for consumer taht are very slwo ideally prefect vlaue shiudl le less like 1(only one is moved out of mq and 499 availble for ready)
+	or a bteer will be prefeth  = numberof avergae quuee messages / average consumers threads -> in pour case we have 4 consumers
+	aso it will be 500/4 -> 125 -> this will makje sure none of the consumer is blocked 
+
+- Since Data transfer in rabbit mq happens in form of byte array, we can have two differnet message entiteis present in same queue
+	-> we need to create two listner mapped to same queue but each method can have different entities
+/	/other approach could be two use two different routing key for each and binding can help us to push to diferent queue 
+
+- If we have same queue for all the emthod listenrss instead of writing it on emthod level we cna keep on class level
+-> also all the listner methods we need to mark @rabbitHAdnmler as  a class can have method for listnering as well as local methods 
+- >we can even set a deafult method for this rabitHAndler method
+
+
+---- Consistent hashing type of excahnge---------
+- We need consisten hashing technique of excahnge to support correct ordering of message to a queue
+	-> lets say we have single queue for multiple message , order creation .order placement, orde rpayment
+	the sequence of these stpes are importantn, if lets say we have 2 queuue
+	 one for handling order one for handling order placement, if order creation way too much time and orde placemnet is sucesful , the sequnce of wrong order may cause data inconsistency
+- for this we need to follow below steps:
+a. enable consistne hashing exchange
+b. create such exchange and bind it two queues , routing key we will put ration of dicision
+	eg if binding key is 10 for q1 and 20 for q2 q2 will have twice number of items/messages
+	while sending the message using rabbit template, we can keep order id as same for both order creationa nd placemnet message whihc hasesh to same queue and hence 
+	two different message of same orde rid will go to same queue
+- consitent hash excahnge will hev routing key only as int(stirng not allowed)
+	-> if exchnage is hash one then routing key put in rabbit tempalte wil be hashed and based on propbaility it will go to that queuue
+	if same routing key is used for any other object it will still go to same old queue and henc eordering is amnitained
+- in short we use we use conistent hash excahnge to ensure differmnt event message for same order/invoide goes to same queue so that it process in proepr sequence 
+	and do not have any data inconsistency
+
+- Also a consumer cna still act as a producer,
+	for example in saga patter if exception occurs we need to call roll back message queue
+-> Also in saga we push event to another message queue, and for this we cna use rabbit tempalte, but spring have create specifi reply mechanism
+	-> this makes us writ eless code in @rabbitHandler

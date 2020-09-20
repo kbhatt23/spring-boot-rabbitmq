@@ -7,7 +7,7 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
 
 //added for spring oob retrying mechanism
-@Service
+//@Service
 public class FanoutExchangeConsumerService {
 	Logger logger = LoggerFactory.getLogger(FanoutExchangeConsumerService.class);
 	@RabbitListener(queues = {"fanout-one"})
